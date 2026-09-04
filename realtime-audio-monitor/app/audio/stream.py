@@ -30,7 +30,7 @@ class AudioStream:
         try:
             self.audio_queue.put_nowait(audio)
         except queue.Full:
-            # Gerçek zamanlı sistemde gecikme birikmesini engelle.
+            # Prevent latency buildup in the real-time system.
             try:
                 self.audio_queue.get_nowait()
             except queue.Empty:
