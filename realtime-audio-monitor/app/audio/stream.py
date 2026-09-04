@@ -10,10 +10,13 @@ class AudioStream:
         sample_rate: int = 48_000,
         channels: int = 1,
         block_duration_ms: int = 20,
+        device=None,
     ):
         self.sample_rate = sample_rate
         self.channels = channels
+        self.block_duration_ms = block_duration_ms
         self.block_size = int(sample_rate * block_duration_ms / 1000)
+        self.device = device
 
         self.audio_queue = queue.Queue(maxsize=20)
         self.stream = None
@@ -27,27 +30,39 @@ class AudioStream:
         try:
             self.audio_queue.put_nowait(audio)
         except queue.Full:
-            # If the GUI/processing side cannot keep up drop the new frame instead of holding onto the old one
-            pass
+            # Gerçek zamanlı sistemde gecikme birikmesini engelle.
+            try:
+                self.audio_queue.get_nowait()
+            except queue.Empty:
+                pass
+
+            try:
+                self.audio_queue.put_nowait(audio)
+            except queue.Full:
+                pass
 
     def start(self):
+        if self.stream is not None:
+            return
+
+        self.audio_queue = queue.Queue(maxsize=20)
+
         self.stream = sd.InputStream(
             samplerate=self.sample_rate,
             channels=self.channels,
             dtype="float32",
             blocksize=self.block_size,
+            device=self.device,
             callback=self._callback,
         )
 
         self.stream.start()
 
-        print("Audio stream started")
-        print(f"Sample rate: {self.sample_rate} Hz")
-        print(f"Channels: {self.channels}")
-        print(f"Block size: {self.block_size} samples")
-
-    def read(self, timeout=None):
-        return self.audio_queue.get(timeout=timeout)
+    def read(self):
+        try:
+            return self.audio_queue.get_nowait()
+        except queue.Empty:
+            return None
 
     def stop(self):
         if self.stream is not None:
@@ -55,4 +70,17 @@ class AudioStream:
             self.stream.close()
             self.stream = None
 
-        print("Audio stream stopped")
+    @staticmethod
+    def get_input_devices():
+        devices = sd.query_devices()
+
+        return [
+            {
+                "index": index,
+                "name": device["name"],
+                "channels": device["max_input_channels"],
+                "sample_rate": device["default_samplerate"],
+            }
+            for index, device in enumerate(devices)
+            if device["max_input_channels"] > 0
+        ]

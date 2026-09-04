@@ -1,36 +1,17 @@
-import time
+import sys
 
-from app.audio.stream import AudioStream
-from app.processing.analyzer import AudioAnalyzer
+from PySide6.QtWidgets import QApplication
+
+from app.ui.main_window import MainWindow
 
 
 def main():
-    stream = AudioStream(
-        sample_rate=48_000,
-        channels=1,
-        block_duration_ms=20,
-    )
+    app = QApplication(sys.argv)
 
-    analyzer = AudioAnalyzer()
+    window = MainWindow()
+    window.show()
 
-    try:
-        stream.start()
-
-        while True:
-            audio = stream.read(timeout=1)
-
-            result = analyzer.analyze(audio)
-
-            print(
-                f"RMS: {result['rms_db']:>7.2f} dBFS | "
-                f"Peak: {result['peak_db']:>7.2f} dBFS"
-            )
-
-    except KeyboardInterrupt:
-        print("\nStopping...")
-
-    finally:
-        stream.stop()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

@@ -2,3 +2,4 @@ numpy
 scipy
 sounddevice
 PySide6
+pyqtgraph
