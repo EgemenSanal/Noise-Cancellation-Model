@@ -1,12 +1,12 @@
 import numpy as np
 import pyqtgraph as pg
-
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -25,6 +25,9 @@ class MainWindow(QMainWindow):
 
         self.stream = None
         self.analyzer = AudioAnalyzer()
+
+        self.peak_hold_db = -100.0
+        self.peak_hold_decay = 1.0
 
         self._build_ui()
 
@@ -58,6 +61,20 @@ class MainWindow(QMainWindow):
         layout.addLayout(device_layout)
 
         # Audio information
+        volume_label = QLabel("Volume")
+
+        self.volume_meter = QProgressBar()
+        self.volume_meter.setRange(0, 60)
+        self.volume_meter.setValue(0)
+        self.volume_meter.setTextVisible(False)
+        self.volume_meter.setMinimumHeight(25)
+
+        layout.addWidget(volume_label)
+        layout.addWidget(self.volume_meter)
+
+        self.peak_hold_label = QLabel("Peak Hold: -100.00 dBFS")
+        layout.addWidget(self.peak_hold_label)
+
         info_layout = QHBoxLayout()
 
         self.rms_label = QLabel("RMS: -100.00 dBFS")
@@ -143,6 +160,10 @@ class MainWindow(QMainWindow):
         self.start_button.setText("Start")
         self.device_combo.setEnabled(True)
 
+        self.peak_hold_db = -100.0
+        self.peak_hold_label.setText("Peak Hold: -100.00 dBFS")
+        self.volume_meter.setValue(0)
+
     def update_audio(self):
         if self.stream is None:
             return
@@ -157,12 +178,39 @@ class MainWindow(QMainWindow):
             sample_rate=self.stream.sample_rate,
         )
 
+        rms_db = result["rms_db"]
+        peak_db = result["peak_db"]
+
         self.rms_label.setText(
-            f"RMS: {result['rms_db']:.2f} dBFS"
+            f"RMS: {rms_db:.2f} dBFS"
         )
 
         self.peak_label.setText(
-            f"Peak: {result['peak_db']:.2f} dBFS"
+            f"Peak: {peak_db:.2f} dBFS"
+        )
+
+        self.centroid_label.setText(
+            f"Centroid: {result['spectral_centroid']:.0f} Hz"
+        )
+
+        self.zcr_label.setText(
+            f"ZCR: {result['zero_crossing_rate']:.3f}"
+        )
+
+        # Volume meter
+        meter_value = int(np.clip(rms_db + 60, 0, 60))
+        self.volume_meter.setValue(meter_value)
+
+        # Peak hold
+        if peak_db > self.peak_hold_db:
+            self.peak_hold_db = peak_db
+        else:
+            self.peak_hold_db -= self.peak_hold_decay
+
+        self.peak_hold_db = max(self.peak_hold_db, -100.0)
+
+        self.peak_hold_label.setText(
+            f"Peak Hold: {self.peak_hold_db:.2f} dBFS"
         )
 
         self.centroid_label.setText(
