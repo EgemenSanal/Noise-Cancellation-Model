@@ -20,6 +20,19 @@ class AudioAnalyzer:
         return float(20 * np.log10(value))
 
     @staticmethod
+    def zero_crossing_rate(audio: np.ndarray) -> float:
+        audio = audio.astype(np.float32).flatten()
+
+        if len(audio) < 2:
+            return 0.0
+
+        crossings = np.sum(
+            np.signbit(audio[:-1]) != np.signbit(audio[1:])
+        )
+
+        return float(crossings / (len(audio) - 1))
+
+    @staticmethod
     def fft(audio: np.ndarray, sample_rate: int):
         audio = audio.astype(np.float32).flatten()
 
@@ -38,7 +51,21 @@ class AudioAnalyzer:
             np.maximum(magnitude, 1e-10)
         )
 
-        return frequencies, magnitude_db
+        return frequencies, magnitude_db, magnitude
+
+    @staticmethod
+    def spectral_centroid(
+        frequencies: np.ndarray,
+        magnitude: np.ndarray,
+    ) -> float:
+        total = np.sum(magnitude)
+
+        if total <= 1e-10:
+            return 0.0
+
+        return float(
+            np.sum(frequencies * magnitude) / total
+        )
 
     def analyze(
         self,
@@ -50,10 +77,17 @@ class AudioAnalyzer:
         rms = self.rms(audio)
         peak = self.peak(audio)
 
-        frequencies, spectrum_db = self.fft(
+        frequencies, spectrum_db, magnitude = self.fft(
             audio,
             sample_rate,
         )
+
+        centroid = self.spectral_centroid(
+            frequencies,
+            magnitude,
+        )
+
+        zcr = self.zero_crossing_rate(audio)
 
         return {
             "rms": rms,
@@ -63,4 +97,6 @@ class AudioAnalyzer:
             "waveform": audio,
             "frequencies": frequencies,
             "spectrum_db": spectrum_db,
+            "spectral_centroid": centroid,
+            "zero_crossing_rate": zcr,
         }

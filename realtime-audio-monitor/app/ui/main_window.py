@@ -62,9 +62,13 @@ class MainWindow(QMainWindow):
 
         self.rms_label = QLabel("RMS: -100.00 dBFS")
         self.peak_label = QLabel("Peak: -100.00 dBFS")
+        self.centroid_label = QLabel("Centroid: 0 Hz")
+        self.zcr_label = QLabel("ZCR: 0.000")
 
         info_layout.addWidget(self.rms_label)
         info_layout.addWidget(self.peak_label)
+        info_layout.addWidget(self.centroid_label)
+        info_layout.addWidget(self.zcr_label)
 
         layout.addLayout(info_layout)
 
@@ -159,6 +163,14 @@ class MainWindow(QMainWindow):
 
         self.peak_label.setText(
             f"Peak: {result['peak_db']:.2f} dBFS"
+        )
+
+        self.centroid_label.setText(
+            f"Centroid: {result['spectral_centroid']:.0f} Hz"
+        )
+
+        self.zcr_label.setText(
+            f"ZCR: {result['zero_crossing_rate']:.3f}"
         )
 
         waveform = result["waveform"]
