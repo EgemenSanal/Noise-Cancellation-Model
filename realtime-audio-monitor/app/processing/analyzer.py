@@ -54,6 +54,27 @@ class AudioAnalyzer:
         return frequencies, magnitude_db, magnitude
 
     @staticmethod
+    def clipping_count(audio: np.ndarray, threshold: float = 0.999) -> int:
+        audio = audio.astype(np.float32).flatten()
+
+        return int(np.sum(np.abs(audio) >= threshold))
+
+
+    @staticmethod
+    def noise_floor(audio: np.ndarray) -> float:
+        audio = audio.astype(np.float32).flatten()
+
+        if len(audio) == 0:
+            return -100.0
+
+        rms = np.sqrt(np.mean(np.square(audio)))
+
+        if rms <= 1e-10:
+            return -100.0
+
+        return float(20 * np.log10(rms))
+
+    @staticmethod
     def spectral_centroid(
         frequencies: np.ndarray,
         magnitude: np.ndarray,
@@ -99,4 +120,6 @@ class AudioAnalyzer:
             "spectrum_db": spectrum_db,
             "spectral_centroid": centroid,
             "zero_crossing_rate": zcr,
+            "clipping_count" : self.clipping_count(audio),
+            "noise_floor" : self.noise_floor(audio)
         }

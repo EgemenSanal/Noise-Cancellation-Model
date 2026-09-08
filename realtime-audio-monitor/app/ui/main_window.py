@@ -110,6 +110,14 @@ class MainWindow(QMainWindow):
         self.spectrum_curve = self.spectrum_plot.plot()
 
         layout.addWidget(self.spectrum_plot)
+        self.clipping_label = QLabel("Clipping: 0 samples")
+        layout.addWidget(self.clipping_label)
+
+        self.noise_floor_label = QLabel("Noise Floor: -100.00 dBFS")
+        layout.addWidget(self.noise_floor_label)
+
+        self.dynamic_range_label = QLabel("Dynamic Range: 0.00 dB")
+        layout.addWidget(self.dynamic_range_label)
 
     def load_devices(self):
         self.device_combo.clear()
@@ -180,6 +188,30 @@ class MainWindow(QMainWindow):
 
         rms_db = result["rms_db"]
         peak_db = result["peak_db"]
+
+        clipping_count = result["clipping_count"]
+        noise_floor = result["noise_floor"]
+
+        dynamic_range = max(
+            0.0,
+            peak_db - noise_floor
+        )
+        if clipping_count > 0:
+            self.clipping_label.setText(
+                f"⚠ CLIPPING: {clipping_count} samples"
+            )
+        else:
+            self.clipping_label.setText(
+                "Clipping: 0 samples"
+            )
+
+        self.noise_floor_label.setText(
+            f"Noise Floor: {noise_floor:.2f} dBFS"
+        )
+
+        self.dynamic_range_label.setText(
+            f"Dynamic Range: {dynamic_range:.2f} dB"
+        )
 
         self.rms_label.setText(
             f"RMS: {rms_db:.2f} dBFS"
