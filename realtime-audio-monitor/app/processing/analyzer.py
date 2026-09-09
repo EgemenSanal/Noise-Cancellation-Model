@@ -75,6 +75,41 @@ class AudioAnalyzer:
         return float(20 * np.log10(rms))
 
     @staticmethod
+    def calculate_noise_floor(frames: list[np.ndarray]) -> float:
+        if not frames:
+            return -100.0
+
+        rms_values = []
+
+        for audio in frames:
+            audio = audio.astype(np.float32).flatten()
+
+            if len(audio) == 0:
+                continue
+
+            rms = np.sqrt(np.mean(np.square(audio)))
+
+            if rms > 1e-10:
+                rms_values.append(rms)
+
+        if not rms_values:
+            return -100.0
+
+        # Exclude excessively high frames from the noise floor calculation.
+        rms_values = np.array(rms_values, dtype=np.float32)
+
+        # Create a baseline from the bottom 80% segment.
+        threshold = np.percentile(rms_values, 80)
+        quiet_frames = rms_values[rms_values <= threshold]
+
+        if len(quiet_frames) == 0:
+            quiet_frames = rms_values
+
+        noise_rms = float(np.median(quiet_frames))
+
+        return AudioAnalyzer.dbfs(noise_rms)
+
+    @staticmethod
     def spectral_centroid(
         frequencies: np.ndarray,
         magnitude: np.ndarray,

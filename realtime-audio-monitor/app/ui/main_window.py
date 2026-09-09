@@ -35,9 +35,15 @@ class MainWindow(QMainWindow):
         self.timer.setInterval(20)
         self.timer.timeout.connect(self.update_audio)
 
+        self.noise_floor_db = -100.0
+        self.calibrating_noise = False
+        self.calibration_frames = []
+        self.calibration_target_frames = 150
+
         self.load_devices()
 
     def _build_ui(self):
+        
         central = QWidget()
         self.setCentralWidget(central)
 
@@ -119,6 +125,16 @@ class MainWindow(QMainWindow):
         self.dynamic_range_label = QLabel("Dynamic Range: 0.00 dB")
         layout.addWidget(self.dynamic_range_label)
 
+        self.calibrate_button = QPushButton(
+            "Calibrate Noise Floor"
+        )
+
+        self.calibrate_button.clicked.connect(
+            self.start_noise_calibration
+        )
+
+        layout.addWidget(self.calibrate_button)
+
     def load_devices(self):
         self.device_combo.clear()
 
@@ -194,7 +210,7 @@ class MainWindow(QMainWindow):
 
         dynamic_range = max(
             0.0,
-            peak_db - noise_floor
+            peak_db - self.noise_floor_db
         )
         if clipping_count > 0:
             self.clipping_label.setText(
@@ -265,6 +281,57 @@ class MainWindow(QMainWindow):
             result["spectrum_db"],
         )
 
+        if self.calibrating_noise:
+            self.calibration_frames.append(
+                audio.copy()
+            )
+
+            progress = len(self.calibration_frames)
+
+            self.calibrate_button.setText(
+                f"Calibrating... {progress}/"
+                f"{self.calibration_target_frames}"
+            )
+
+            if progress >= self.calibration_target_frames:
+                self.finish_noise_calibration()
+
     def closeEvent(self, event):
         self.stop_stream()
         event.accept()
+
+    def start_noise_calibration(self):
+        if self.calibrating_noise:
+            return
+
+        self.calibrating_noise = True
+        self.calibration_frames = []
+
+        self.calibrate_button.setEnabled(False)
+        self.calibrate_button.setText(
+            "Calibrating... Keep quiet"
+        )
+
+        self.noise_floor_label.setText(
+            "Noise Floor: calibrating..."
+        )
+    
+    def finish_noise_calibration(self):
+        self.noise_floor_db = (
+            AudioAnalyzer.calculate_noise_floor(
+                self.calibration_frames
+            )
+        )
+
+        self.calibrating_noise = False
+        self.calibration_frames = []
+
+        self.calibrate_button.setEnabled(True)
+        self.calibrate_button.setText(
+            "Calibrate Noise Floor"
+        )
+
+        self.noise_floor_label.setText(
+            f"Noise Floor: "
+            f"{self.noise_floor_db:.2f} dBFS"
+        )
