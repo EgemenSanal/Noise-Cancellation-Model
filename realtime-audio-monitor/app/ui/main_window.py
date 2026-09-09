@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
+import time
 from app.audio.stream import AudioStream
 from app.processing.analyzer import AudioAnalyzer
 
@@ -39,6 +39,8 @@ class MainWindow(QMainWindow):
         self.calibrating_noise = False
         self.calibration_frames = []
         self.calibration_target_frames = 150
+
+        self.processing_time_ms = 0.0
 
         self.load_devices()
 
@@ -135,6 +137,22 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.calibrate_button)
 
+        self.performance_label = QLabel(
+            "Processing: 0.00 ms"
+        )
+
+        self.buffer_label = QLabel(
+            "Buffer: 0 / 20"
+        )
+
+        self.frames_label = QLabel(
+            "Frames: 0 | Dropped: 0"
+        )
+
+        layout.addWidget(self.performance_label)
+        layout.addWidget(self.buffer_label)
+        layout.addWidget(self.frames_label)
+
     def load_devices(self):
         self.device_combo.clear()
 
@@ -187,6 +205,17 @@ class MainWindow(QMainWindow):
         self.peak_hold_db = -100.0
         self.peak_hold_label.setText("Peak Hold: -100.00 dBFS")
         self.volume_meter.setValue(0)
+        self.performance_label.setText(
+            "Processing: 0.00 ms"
+        )
+
+        self.buffer_label.setText(
+            "Buffer: 0 / 20"
+        )
+
+        self.frames_label.setText(
+            "Frames: 0 | Dropped: 0"
+        )
 
     def update_audio(self):
         if self.stream is None:
@@ -197,9 +226,38 @@ class MainWindow(QMainWindow):
         if audio is None:
             return
 
+        start_time = time.perf_counter()
+
+        result = self.analyzer.analyze(
+            audio,
+            self.stream.sample_rate,
+        )
+
+        self.processing_time_ms = (
+            time.perf_counter() - start_time
+        ) * 1000
+
         result = self.analyzer.analyze(
             audio,
             sample_rate=self.stream.sample_rate,
+        )
+
+        stats = self.stream.get_stats()
+
+        self.performance_label.setText(
+            f"Processing: "
+            f"{self.processing_time_ms:.2f} ms"
+        )
+
+        self.buffer_label.setText(
+            f"Buffer: "
+            f"{stats['buffer_size']} / "
+            f"{stats['buffer_capacity']}"
+        )
+
+        self.frames_label.setText(
+            f"Frames: {stats['total_frames']} | "
+            f"Dropped: {stats['dropped_frames']}"
         )
 
         rms_db = result["rms_db"]

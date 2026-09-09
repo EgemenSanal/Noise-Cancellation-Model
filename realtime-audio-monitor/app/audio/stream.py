@@ -20,16 +20,20 @@ class AudioStream:
 
         self.audio_queue = queue.Queue(maxsize=20)
         self.stream = None
+        self.total_frames = 0
+        self.dropped_frames = 0
 
     def _callback(self, indata, frames, time, status):
         if status:
             print(f"Audio status: {status}")
 
         audio = indata.copy()
+        self.total_frames += 1;
 
         try:
             self.audio_queue.put_nowait(audio)
         except queue.Full:
+            self.dropped_frames += 1
             # Prevent latency buildup in the real-time system.
             try:
                 self.audio_queue.get_nowait()
@@ -46,6 +50,9 @@ class AudioStream:
             return
 
         self.audio_queue = queue.Queue(maxsize=20)
+
+        self.total_frames = 0
+        self.dropped_frames = 0
 
         self.stream = sd.InputStream(
             samplerate=self.sample_rate,
@@ -69,6 +76,17 @@ class AudioStream:
             self.stream.stop()
             self.stream.close()
             self.stream = None
+
+    def get_buffer_size(self) -> int:
+        return self.audio_queue.qsize()
+
+    def get_stats(self) -> dict:
+        return {
+            "total_frames": self.total_frames,
+            "dropped_frames": self.dropped_frames,
+            "buffer_size": self.get_buffer_size(),
+            "buffer_capacity": self.audio_queue.maxsize,
+        }
 
     @staticmethod
     def get_input_devices():
